@@ -1,0 +1,8 @@
+Model/
+venv/
+__pycache__/
+.DS_Store
+.vscode/venv/
+__pycache__/
+*.pyc
+.DS_Store
