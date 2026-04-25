@@ -5,9 +5,34 @@ import numpy as np
 
 import re
 from rapidfuzz import process, fuzz
-from rdkit import Chem
-from rdkit.Chem import MACCSkeys
+
+try:
+    from rdkit import Chem
+    from rdkit.Chem import MACCSkeys
+    RDKIT_AVAILABLE = True
+except:
+    RDKIT_AVAILABLE = False
+
 import pubchempy as pcp
+import os
+import gdown
+
+# ============================================
+# 🔽 DOWNLOAD MODELS IF NOT EXISTS
+# ============================================
+
+os.makedirs("Model", exist_ok=True)
+
+def download_file(file_id, output):
+    if not os.path.exists(output):
+        url = f"https://drive.google.com/uc?id={file_id}"
+        gdown.download(url, output, quiet=False)
+
+# 🔥 تحميل المودلز
+download_file("1aPcnVR8EaYb8XITmW9yR5u4m-QTFZPPX", "Model/model_binary.pkl")
+download_file("1cs95UHPf96nSEKrPnlnkG3IjBjxdY8yX", "Model/model_severity.pkl")
+download_file("1YQOvSvMWBiIvBf-7-Se8SlpcqYqg1n9b", "Model/xgb_model.pkl")
+download_file("1rZlDBYxvwPlKzpBWgfp-hEyTEdVOxWLK", "Model/rf_model.pkl")
 
 # ============================================
 # 🔥 LOAD FILES
@@ -24,7 +49,6 @@ model_binary = joblib.load(MODEL_PATH + "model_binary.pkl")
 model_severity = joblib.load(MODEL_PATH + "model_severity.pkl")
 xgb_model = joblib.load(MODEL_PATH + "xgb_model.pkl")
 rf_model = joblib.load(MODEL_PATH + "rf_model.pkl")
-
 # ============================================
 # 🔹 APP
 # ============================================
@@ -116,6 +140,9 @@ def get_smiles(drug):
     return None
 
 def fingerprint(smiles):
+    if not RDKIT_AVAILABLE:
+        return np.zeros(166)
+
     if not smiles:
         return np.zeros(166)
 

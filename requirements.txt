@@ -3,5 +3,6 @@ uvicorn
 numpy
 joblib
 rapidfuzz
-rdkit-pypi
+#rdkit-pypi
 pubchempy
+gdown
