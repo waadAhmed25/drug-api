@@ -6,3 +6,4 @@ rapidfuzz
 #rdkit-pypi
 pubchempy
 gdown
+scikit-learn
