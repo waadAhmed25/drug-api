@@ -7,3 +7,4 @@ rapidfuzz
 pubchempy
 gdown
 scikit-learn
+xgboost
