@@ -35,20 +35,26 @@ download_file("1YQOvSvMWBiIvBf-7-Se8SlpcqYqg1n9b", "Model/xgb_model.pkl")
 download_file("1rZlDBYxvwPlKzpBWgfp-hEyTEdVOxWLK", "Model/rf_model.pkl")
 
 # ============================================
-# 🔥 LOAD FILES
+# 🔥 LOAD FILES (SAFE 🔥)
 # ============================================
+
+def safe_load(path):
+    if not os.path.exists(path):
+        raise Exception(f"Missing file: {path}")
+    return joblib.load(path)
+
 DATA_PATH = "Data/"
 MODEL_PATH = "Model/"
 
-smiles_cache = joblib.load(DATA_PATH + "smiles_cache.pkl")
-INTERACTION_LOOKUP = joblib.load(DATA_PATH + "interaction_lookup.pkl")
-drug_encoder = joblib.load(DATA_PATH + "drug_encoder.pkl")
-label_encoder = joblib.load(DATA_PATH + "label_encoder.pkl")
+smiles_cache = safe_load(DATA_PATH + "smiles_cache.pkl")
+INTERACTION_LOOKUP = safe_load(DATA_PATH + "interaction_lookup.pkl")
+drug_encoder = safe_load(DATA_PATH + "drug_encoder.pkl")
+label_encoder = safe_load(DATA_PATH + "label_encoder.pkl")
 
-model_binary = joblib.load(MODEL_PATH + "model_binary.pkl")
-model_severity = joblib.load(MODEL_PATH + "model_severity.pkl")
-xgb_model = joblib.load(MODEL_PATH + "xgb_model.pkl")
-rf_model = joblib.load(MODEL_PATH + "rf_model.pkl")
+model_binary = safe_load(MODEL_PATH + "model_binary.pkl")
+model_severity = safe_load(MODEL_PATH + "model_severity.pkl")
+xgb_model = safe_load(MODEL_PATH + "xgb_model.pkl")
+rf_model = safe_load(MODEL_PATH + "rf_model.pkl")
 # ============================================
 # 🔹 APP
 # ============================================
