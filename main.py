@@ -18,54 +18,66 @@ import os
 import gdown
 
 # ============================================
-# 🔽 DOWNLOAD MODELS IF NOT EXISTS
+# 🔥 LOADING ON STARTUP (أفضل حل للاستقرار)
 # ============================================
 
-os.makedirs("Model", exist_ok=True)
+models_loaded = False  # 👈 فلاج عشان نحمل مرة واحدة بس
 
-def download_file(file_id, output):
-    if not os.path.exists(output):
-        url = f"https://drive.google.com/uc?id={file_id}"
-        gdown.download(url, output, quiet=False)
+def load_everything():
+    global models_loaded
+    global smiles_cache, INTERACTION_LOOKUP, drug_encoder, label_encoder
+    global model_binary, model_severity, xgb_model, rf_model
 
-# 🔥 تحميل المودلز
-download_file("1aPcnVR8EaYb8XITmW9yR5u4m-QTFZPPX", "Model/model_binary.pkl")
-download_file("1cs95UHPf96nSEKrPnlnkG3IjBjxdY8yX", "Model/model_severity.pkl")
-download_file("1YQOvSvMWBiIvBf-7-Se8SlpcqYqg1n9b", "Model/xgb_model.pkl")
-download_file("1rZlDBYxvwPlKzpBWgfp-hEyTEdVOxWLK", "Model/rf_model.pkl")
+    if models_loaded:
+        return  # 👈 يمنع إعادة التحميل
 
-# ============================================
-# 🔥 LOAD FILES (SAFE 🔥)
-# ============================================
+    os.makedirs("Model", exist_ok=True)
 
-def safe_load(path):
-    if not os.path.exists(path):
-        raise Exception(f"Missing file: {path}")
-    return joblib.load(path)
+    def download_file(file_id, output):
+        if not os.path.exists(output):
+            url = f"https://drive.google.com/uc?id={file_id}"
+            gdown.download(url, output, quiet=False)
 
-DATA_PATH = "Data/"
-MODEL_PATH = "Model/"
+    # 👇 تحميل الموديلات (مرة واحدة بس)
+    download_file("1aPcnVR8EaYb8XITmW9yR5u4m-QTFZPPX", "Model/model_binary.pkl")
+    download_file("1cs95UHPf96nSEKrPnlnkG3IjBjxdY8yX", "Model/model_severity.pkl")
+    download_file("1YQOvSvMWBiIvBf-7-Se8SlpcqYqg1n9b", "Model/xgb_model.pkl")
+    download_file("1rZlDBYxvwPlKzpBWgfp-hEyTEdVOxWLK", "Model/rf_model.pkl")
 
-smiles_cache = safe_load(DATA_PATH + "smiles_cache.pkl")
-INTERACTION_LOOKUP = safe_load(DATA_PATH + "interaction_lookup.pkl")
-drug_encoder = safe_load(DATA_PATH + "drug_encoder.pkl")
-label_encoder = safe_load(DATA_PATH + "label_encoder.pkl")
+    DATA_PATH = "Data/"
+    MODEL_PATH = "Model/"
 
-model_binary = safe_load(MODEL_PATH + "model_binary.pkl")
-model_severity = safe_load(MODEL_PATH + "model_severity.pkl")
-xgb_model = safe_load(MODEL_PATH + "xgb_model.pkl")
-rf_model = safe_load(MODEL_PATH + "rf_model.pkl")
+    # 👇 تحميل الداتا والموديلات
+    smiles_cache = joblib.load(DATA_PATH + "smiles_cache.pkl")
+    INTERACTION_LOOKUP = joblib.load(DATA_PATH + "interaction_lookup.pkl")
+    drug_encoder = joblib.load(DATA_PATH + "drug_encoder.pkl")
+    label_encoder = joblib.load(DATA_PATH + "label_encoder.pkl")
+
+    model_binary = joblib.load(MODEL_PATH + "model_binary.pkl")
+    model_severity = joblib.load(MODEL_PATH + "model_severity.pkl")
+    xgb_model = joblib.load(MODEL_PATH + "xgb_model.pkl")
+    rf_model = joblib.load(MODEL_PATH + "rf_model.pkl")
+
+    models_loaded = True  # 👈 خلاص اتحملوا
+
+
 # ============================================
 # 🔹 APP
 # ============================================
 
 app = FastAPI(title="🔥 Drug Interaction Hybrid API")
 
+# ✅ أهم تعديل في الدنيا هنا 👇
+@app.on_event("startup")
+def startup_event():
+    load_everything()  # 👈 يتحمل مرة واحدة أول ما السيرفر يقوم
+
+
 class DrugRequest(BaseModel):
     drugs: list[str]
 
 # ============================================
-# 🔹 KNOWLEDGE BASE 🔥
+# 🔹 KNOWLEDGE BASE
 # ============================================
 
 KNOWN_MAJOR_INTERACTIONS = {
@@ -82,7 +94,7 @@ SAFE_COMBINATIONS = {
 }
 
 # ============================================
-# 🔹 CLEAN + NORMALIZE 🔥
+# 🔹 CLEAN + NORMALIZE
 # ============================================
 
 def basic_clean(text):
@@ -98,13 +110,11 @@ def normalize_drug(name, threshold=90):
     if not query:
         return None
 
-    # vitamins fix 🔥
     if "vitamin c" in query or "vit c" in query:
         return "ascorbic acid"
     if "vitamin a" in query or "vit a" in query:
         return "retinol"
 
-    # mapping
     mapping = {
         "paracetamol": ["panadol", "acetaminophen"],
         "ibuprofen": ["brufen", "advil"],
@@ -117,11 +127,9 @@ def normalize_drug(name, threshold=90):
         if query == k or query in v:
             return k
 
-    # exact
     if query in drug_encoder.classes_:
         return query
 
-    # fuzzy
     result = process.extractOne(query, drug_encoder.classes_, scorer=fuzz.token_sort_ratio)
     if result and result[1] >= threshold:
         return result[0]
@@ -174,7 +182,7 @@ def build_features(sm1, sm2):
     ]).reshape(1, -1)
 
 # ============================================
-# 🔥 PREDICTION ENGINE (FULL 🔥🔥)
+# 🔥 PREDICTION ENGINE
 # ============================================
 
 def predict(drug1, drug2):
@@ -187,7 +195,6 @@ def predict(drug1, drug2):
 
     pair = tuple(sorted([d1, d2]))
 
-    # 🥇 KNOWLEDGE
     if pair in KNOWN_MAJOR_INTERACTIONS:
         return {
             "drug1": d1,
@@ -197,11 +204,9 @@ def predict(drug1, drug2):
             "confidence": 1.0
         }
 
-    # 🥈 SAFE
     if pair in SAFE_COMBINATIONS:
         return None
 
-    # 🥉 DATABASE
     if pair in INTERACTION_LOOKUP:
         r = INTERACTION_LOOKUP[pair]
 
@@ -216,7 +221,6 @@ def predict(drug1, drug2):
             "confidence": 0.95
         }
 
-    # 🧠 ML
     try:
         if d1 in drug_encoder.classes_ and d2 in drug_encoder.classes_:
 
@@ -256,7 +260,6 @@ def predict(drug1, drug2):
     except:
         pass
 
-    # 🧪 SMILES (ENSEMBLE 🔥)
     sm1, sm2 = get_smiles(d1), get_smiles(d2)
 
     if sm1 and sm2:
@@ -319,6 +322,8 @@ def home():
 
 @app.post("/check")
 def check(request: DrugRequest):
+
+    # ❌ مفيش load هنا خلاص
 
     drugs = [normalize_drug(d) for d in request.drugs]
     drugs = [d for d in drugs if d]
